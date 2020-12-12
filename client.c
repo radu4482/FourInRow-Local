@@ -2,36 +2,42 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <stdio.h>
+#include <unistd.h> 
 #include <netinet/in.h>
+
+bool decision(){
+    int a=1;
+    }
 
 int main()
 {
 
-    //create socket
-    int network_socket;
-    network_socket = socket(AF_INET, SOCK_STREAM, 0);
+		signal(SIGINT, signalHandler);
 
-    //specify an address for the socket
-    struct sockaddr_in server_address;
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(9002);
-    server_address.sin_addr.s_addr = INADDR_ANY;
+		int SocketClient = socket(AF_INET, SOCK_STREAM, 0);
+		if (SocketClient == -1)
+		{
+			std::cerr << "[CLIENT]Eroare la socket\n";
+				return errno;
+		}
 
-    int connection_status = connect(network_socket, (struct sockaddr *)&server_address, sizeof(server_address));
-    //check for error with the connection
-    if (connection_status == -1)
-    {
-        printf("there was an error making a connection to the socket");
-    }
+		sockaddr_in server;
+		server.sin_family = AF_INET;
+		server.sin_addr.s_addr = inet_addr("127.0.0.1");
+		server.sin_port = htons(2024);
 
-    //recieve data from the server
-    char server_response[256];
-    recv(network_socket, &server_response, sizeof(server_response), 0);
+		int test;
+		if ((test=connect(SocketClient, (struct sockaddr*)&server, sizeof(server))) == -1)
+		{ 
+			std::cerr << "[CLIENT]Eroare la conectare\n";
+			return errno;
+		}
 
-    //print out the server's response
-    printf("The server send the data : %s\n", server_response);
+		bool exit = false;
+		char buffer[512];
 
-    //close the socket
-    close(network_socket);
-    return 0;
+		while (!exit)
+		{
+            decision();
+        }
 }

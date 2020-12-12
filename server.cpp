@@ -1,3 +1,6 @@
+#include <iostream>
+#include <string>
+#include <thread>
 #include <errno.h>
 #include <mutex>
 #include <fstream>
@@ -16,27 +19,124 @@ using namespace std;
 bool server_quit = false;
 struct sockaddr_in server; // structura folosita de server
 struct sockaddr_in from;
+struct login{
+    char username[200];
+    char password[200];
+};
 enum Protocol
 {
 	_Exit1,
 	_LogIn,
 	_LogOut,
 	_Register,
-	_ArhivaChaturi,
-	_ArhivaChat,
-	_Send,
-	_Reply
+    _CreateGame,
+    _JoinGame
 };
-bool Send(int fd)
+enum LOGIN
 {
-    return 0;
-}
+    _Connectat,
+    _Eroare,
+    _Sloturi
+};
+enum REGISTER
+{
+_Username,
+_Allok
+};
+
+struct loginn{
+    char username[20];
+    char password[20];
+};
 void signalHandler(int signum)
 {
 	printf("[server]Server closed..\n");
 	server_quit = true;
 	exit(signum);
 }; //TODO: vezi despre ce e vb (semnal)
+
+
+bool logInPlayer(int fd){
+
+    printf("\nI am in logIn\n");
+	char username[200], password[200];
+	int len;
+
+    FILE *log;
+    log=fopen("login12.txt","r");
+    struct loginn l;
+    int semnal;
+    read(fd,&semnal,sizeof(semnal));
+    read(fd,&username,semnal);
+    read(fd,&semnal,sizeof(semnal));
+    read(fd,&password,semnal);
+    
+    int raspuns=LOGIN::_Sloturi;
+    
+    while(fread(&l,sizeof(l),1,log))
+{
+    if(strcmp(username,l.username)==0&&strcmp(password,l.password)==0)
+{
+    raspuns=LOGIN::_Connectat;
+    printf("Succesful login\n");
+}
+    else{
+    raspuns=LOGIN::_Eraore;
+    printf("Please Enter correct username and password");
+}
+}
+ write(fd,raspuns,sizeof(raspuns));
+ fclose(log);   
+};
+
+bool registerPlayer(int fd){
+    printf("\nI am in register\n");
+    int length;
+    char username[200],password[200];
+    FILE *log;
+    log=fopen("login12.txt","r+w");
+    struct loginn l;
+    
+    read(fd,&length,sizeof(length));
+    read(fd,&l.username,length);
+    read(fd,&length,sizeof(length));
+    read(fd,&l.password,length);
+
+int raspuns=LOGIN::_Connectat;;
+printf("got answers\n");
+    while(fread(&l,sizeof(l),1,log))
+    {
+        if(strcmp(username,l.username)==0)
+        {       
+
+            printf("erroare\n");
+            raspuns = REGISTER::_Username; 
+            write(fd,&raspuns,sizeof(raspuns));
+            fclose(log);
+            return false;
+        }
+    }
+    printf("a mers\n");
+    fwrite(&l,sizeof(l),1,log);
+    raspuns = LOGIN::_Eroare;
+    write(fd,&raspuns,sizeof(raspuns));
+    fclose(log);
+    return true;
+     
+};
+
+bool createGame(int fd){
+int a=1;
+};
+
+bool joinGame(int fd){
+int a=1;
+};
+
+bool playGame(int fd1, int fd2){
+int a=1;
+};
+
 bool Servire(int fd, sockaddr_in c_socket)
 {
 	char ipAdr[INET_ADDRSTRLEN];
@@ -54,21 +154,17 @@ bool Servire(int fd, sockaddr_in c_socket)
 			printf("Client disconnected\n");
 			quits = true;
 		}
-		//printf("%d\n", desc);
+		printf("%d\n", desc);
 		if (desc == Protocol::_LogIn)
-			;
+			logInPlayer(fd);
 		else if (desc == Protocol::_Register)
-				;
-			else if (desc == Protocol::_ArhivaChaturi)
-					;
-				else if (desc == Protocol::_ArhivaChat)
-						;
-					else if (desc == Protocol::_Send)
+				registerPlayer(fd);
+			else if (desc == Protocol::_CreateGame)
+					createGame(fd);
+				else if (desc == Protocol::_JoinGame)
+						joinGame(fd);
+					else if (desc == Protocol::_Exit1)
 							;
-						else if (desc == Protocol::_Reply)
-								;
-							else if (desc == Protocol::_Exit1)
-									;
 	
 	}
 	return true;
@@ -125,7 +221,7 @@ int main()
 	//accept
 	sockaddr_in client_socket;
 	memset(&client_socket, 0, sizeof(client_socket));
-	while (1)
+	while (true)
 	{
 		int client;
 		socklen_t lenght = sizeof(from);
@@ -138,8 +234,8 @@ int main()
 			cerr << "[server]Eroare la acceptarea clientului!\n";
 			return -2;
 		}
-		std::thread client_thread(Servire, client, client_socket);
-		client_thread.join();
+        std::thread client_thread(Servire,client,client_socket);
+        client_thread.join();
 	}
 
 	//close
