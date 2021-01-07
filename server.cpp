@@ -15,6 +15,7 @@
 #include <sqlite3.h>
 #include <regex>
 #include <csignal>
+#include <cstdlib>
 using namespace std;
 bool server_quit = false;
 struct sockaddr_in server; // structura folosita de server
@@ -32,9 +33,18 @@ enum Protocol
 
 struct utilizator
 {
+	int exit=0;
+	int id;
 	int fd = -1;
 	char username[20];
 
+	bool setExit(int value)
+	{
+		exit=value;
+	}
+	int getExit(){
+		return exit;
+	}
 	bool setLink(int link)
 	{
 		fd = link;
@@ -55,22 +65,72 @@ struct utilizator
 	{
 		return username;
 	}
+	int getId(){
+		return id;
+	}
+	bool setId(int idUnique){
+		id=idUnique;
+	}
+};
+
+utilizator Utilizatori[6];
+
+bool setUniqueId(utilizator &Utilizator){
+	int id=rand()%100+1;
+	bool aux;
+	do{
+		aux=false;
+		for (int i = 0; i < 6; i++)
+			if (Utilizatori[i].getId() == id)
+			aux=true;
+	}while(aux);
+	Utilizator.setId(id);
+}
+bool addUserInList(utilizator Utilizator)
+{
+	for (int i = 0; i < 6; i++)
+		if (Utilizatori[i].getLink() == -1)
+		{
+			Utilizatori[i] = Utilizator;
+			return true;
+		}
+	return false;
+};
+
+bool isThisUsername(char name[20])
+{
+	for (int i = 0; i < 6; i++)
+		if (strcmp(name, Utilizatori[i].getName()) == 0)
+		{
+			return true;
+		}
+	return false;
 };
 
 bool setUser(int fd, utilizator &Utilizator)
 {
 	char username[20];
 	int len;
-
+	int usedname;
 	//citim numele ales de utilizator
-	read(fd, &len, sizeof(len));
-	read(fd, &username, len);
-	username[len] = 0;
+	do
+	{
+		read(fd, &len, sizeof(len));
+		read(fd, &username, len);
+		username[len] = 0;
+		if (isThisUsername(username))
+			usedname = 1;
+		else
+			usedname = 0;
+		write(fd, &usedname, sizeof(usedname));
+
+	} while (isThisUsername(username));
 	//il inscriem cu numele si adresa sa
 	Utilizator.setName(username);
 	Utilizator.setLink(fd);
-
-	printf("[User:%s]Done setting up the User\n", Utilizator.getName());
+	setUniqueId(Utilizator);
+	addUserInList(Utilizator);
+	printf("[User:%s]Done setting up the User with Ip:%d\n", Utilizator.getName(),Utilizator.getLink());
 	return true;
 };
 
@@ -115,18 +175,25 @@ struct game
 
 struct gameLobby
 {
+	int id = rand() % 1000;
 	game Game;
 	utilizator Utilizator1;
 	utilizator Utilizator2;
 	int playerNumber = 1;
 	char hostName[20];
-	int Player1Turn=0;
-	int Player2Turn=0;
+	int Player1Turn = 0;
+	int Player2Turn = 0;
 
+	int getId()
+	{
+		return id;
+	}
 
-	bool setPlayer1Turn(int turn){
-		Player1Turn=turn;
-		Player2Turn=1-turn;
+	bool setPlayer1Turn(int turn)
+	{
+		Player1Turn = turn;
+		Player2Turn = 1 - turn;
+		return true;
 	}
 
 	bool empty = true;
@@ -180,30 +247,22 @@ struct gameLobby
 };
 
 gameLobby Lobbys[6];
-void gameTestConnection(utilizator Player, int fdEnemy, int PlayerIndex)
+
+void cleanLobby(gameLobby Lobby)
 {
-	int turn = 0;
-	int aux;
-	for (int i = 0; i < 2; i++)
-	{
-		if (turn == PlayerIndex)
+	for (int i = 0; i < 6; i++)
+		if (Lobbys[i].getId() == Lobby.getId())
 		{
-			read(Player.getLink(), &aux, sizeof(aux));
-			write(fdEnemy, &aux, sizeof(aux));
+			gameLobby newLobby;
+			Lobbys[i] = newLobby;
+			break;
 		}
-		else
-		{
-			read(Player.getLink(), &aux, sizeof(aux));
-		}
-		turn = 1 - turn;
-	}
-};
+}
 
 void gamePlayerTurn(utilizator Player, int fdEnemy, int PlayerIndex)
 {
 	printf("[In Game]");
 	int len;
-	char message[100];
 	int a;
 	int turn = 0;
 	//gameTestConnection(Player, fdEnemy, PlayerIndex);
@@ -212,7 +271,8 @@ void gamePlayerTurn(utilizator Player, int fdEnemy, int PlayerIndex)
 		if (turn == PlayerIndex)
 		{
 			read(Player.getLink(), &len, sizeof(len));
-			if(len==100)break;
+			if (len == 100)
+				break;
 			//read(Player.getLink(), &message, len);
 			printf("[Game][Player:%s][Message]%d\n", Player.getName(), len);
 			write(fdEnemy, &len, sizeof(len));
@@ -221,15 +281,20 @@ void gamePlayerTurn(utilizator Player, int fdEnemy, int PlayerIndex)
 		else
 		{
 			read(Player.getLink(), &a, sizeof(a));
-			if(a==100)break;
-			printf("[Player: %s]A primit mesajul;\n", Player.getName());
+			if (a == 100)
+			break;
 		}
 		turn = 1 - turn;
 	}
-
+	int decizie;
+	read(Player.getLink(),&decizie,sizeof(decizie));
+	write(fdEnemy,&decizie,sizeof(decizie));
+	read(Player.getLink(),&decizie,sizeof(decizie));
+	
+	if(decizie==1)gamePlayerTurn(Player,fdEnemy,PlayerIndex);
 }
 
-bool addInList(gameLobby &Lobby)
+bool addLobbyInList(gameLobby &Lobby)
 {
 	for (int i = 0; i < 6; i++)
 		if (Lobbys[i].emptyLobby())
@@ -251,17 +316,23 @@ void createGame(utilizator &Utilizator)
 {
 	printf("[User:%s]A ales sa creeze joc\n", Utilizator.getName());
 	gameLobby lobby;
-	int turn;
-	read(Utilizator.getLink(),&turn,sizeof(turn));
-	lobby.startLobby(Utilizator);
-	addInList(lobby);
-	int fdEnemy;
 
+	int turn;
+	read(Utilizator.getLink(), &turn, sizeof(turn));
+	lobby.startLobby(Utilizator);
+	lobby.setPlayer1Turn(turn);
+	addLobbyInList(lobby);
+
+	int fdEnemy;
 	read(Utilizator.getLink(), &fdEnemy, sizeof(fdEnemy));
+	printf("fd:%d\n",Utilizator.getLink());
+	printf("fd:%d\n",fdEnemy);
 	printf("[User:%s] Lobby full , Game will start \n", Utilizator.getName());
 
 	lobby.setGame();
-	gamePlayerTurn(Utilizator, fdEnemy, lobby.Player1Turn);
+	turn = lobby.Player1Turn;
+	cleanLobby(lobby);
+	gamePlayerTurn(Utilizator, fdEnemy, turn);
 };
 
 bool joinGame(utilizator &Utilizator)
@@ -274,12 +345,15 @@ bool joinGame(utilizator &Utilizator)
 	for (int i = 0; i < 6; i++)
 		if (!Lobbys[i].emptyLobby())
 			aux++;
+
 	write(Utilizator.getLink(), &aux, sizeof(aux));
+
 	if (aux == 0)
 	{
 		printf("[User:%s][Join]No lobbys\n", Utilizator.getName());
 		return false;
 	}
+
 	for (int i = 0; i < 6; i++)
 		if (!Lobbys[i].emptyLobby())
 		{
@@ -298,13 +372,26 @@ bool joinGame(utilizator &Utilizator)
 
 	int a = Utilizator.getLink();
 	write(Lobbys[decision].getUtilizator1().getLink(), &a, sizeof(a));
-	a=Lobbys[decision].Player2Turn;
-	write(Utilizator.getLink(),&a,sizeof(a));
+	a = Lobbys[decision].Player2Turn;
+	write(Utilizator.getLink(), &a, sizeof(a));
 	printf("[User:%s] [GameStart] \n", Utilizator.getName());
 
 	gamePlayerTurn(Utilizator, Lobbys[decision].getUtilizator1().getLink(), Lobbys[decision].Player2Turn);
 	return true;
 };
+bool quit(utilizator Utilizator){
+	for(int i=0;i<6;i++)
+		if(Utilizatori[i].getId()==Utilizator.getId())
+		{
+			
+			Utilizator.setExit(1);
+			printf("[Player %s]Just Quit |  P1.index:%d  P1:%d  |  P2:%d  \n",
+			Utilizator.getName(),i,Utilizatori[i].getId(),Utilizator.getId());
+			utilizator emptyUtilizator;
+			Utilizatori[i]=emptyUtilizator;
+			return true;
+		}
+}
 
 bool Servire(int fd, sockaddr_in c_socket)
 {
@@ -315,24 +402,26 @@ bool Servire(int fd, sockaddr_in c_socket)
 	bool quits = false;
 
 	fflush(stdin);
-	char desc[20];
-	int len;
+	int desc;
 
 	utilizator Utilizator;
+
 	setUser(fd, Utilizator);
-
-	while (!quits && !server_quit)
+	while (!quits && !server_quit&&Utilizator.getExit()==0)
 	{
-		read(fd, &len, sizeof(len));
-		read(fd, &desc, len);
+		read(fd, &desc, sizeof(desc));
 
-		if (strcmp(desc, "join") == 0)
+		if (desc == 1)
 		{
 			joinGame(Utilizator);
 		}
-		else if (strcmp(desc, "createGame") == 0)
+		else if (desc == 0)
 		{
 			createGame(Utilizator);
+		}
+		else if(desc==2)
+		{
+			quit(Utilizator);
 		}
 	}
 	return true;

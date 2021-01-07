@@ -151,11 +151,20 @@ struct game
         if (matrix[row][column] == 0)
             return false;
         if (diagonal(row, column) == true)
-            {printf("diag\n");return true;}
+        {
+            printf("diag\n");
+            return true;
+        }
         if (latitude(row, column) == true)
-            {printf("latitude\n");return true;}
+        {
+            printf("latitude\n");
+            return true;
+        }
         if (longitude(row, column) == true)
-            {printf("longitude\n");return true;}
+        {
+            printf("longitude\n");
+            return true;
+        }
         return false;
     };
 
@@ -251,6 +260,8 @@ void gamePlayerTurn(int fd, int PlayerIndex)
     {
         len = -1;
         system("clear");
+        printf("Your flag is : %d \n", flag);
+        printf("Enemy's flag is : %d\n", enemyflag);
         Game.printMatrix();
         //in cazul in care este runda noastra
         if (turn == PlayerIndex)
@@ -290,35 +301,46 @@ void gamePlayerTurn(int fd, int PlayerIndex)
         winner = Game.endGame();
     }
 
-    int endGameServer=100;
-    write(fd,&endGameServer,sizeof(endGameServer));
+    int endGameServer = 100;
+    write(fd, &endGameServer, sizeof(endGameServer));
     system("clear");
     Game.printMatrix();
     if (flag == winner)
         printf("You Won!\n\n");
     else
         printf("You Lost!\n\n");
-    
+
     printf("Would you like to play again with your enemy ?\n0 for NO, 1 for YES\n");
-    
+
     int decizie;
     int decizieEnemy;
 
-    do{cin >> decizie;
-    }while(decizie!=0&&decizie!=1);
+    do
+    {
+        cin >> decizie;
+    } while (decizie != 0 && decizie != 1);
 
-    write(fd,&decizie,sizeof(decizie));
-    read(fd,&decizieEnemy,sizeof(decizieEnemy));
-
-    if(decizie==1&&decizieEnemy==1)gamePlayerTurn(fd,PlayerIndex);
+    write(fd, &decizie, sizeof(decizie));
+    read(fd, &decizieEnemy, sizeof(decizieEnemy));
+    printf("Enemy decision:%d\n",decizieEnemy);
+    if (decizie == 1 && decizieEnemy == 1)
+    {   
+        write(fd,&decizie,sizeof(decizie));
+        gamePlayerTurn(fd, PlayerIndex);
+        }
+        else{
+            int nogame=0;
+            write(fd,&nogame,sizeof(nogame));
+        }
 }
 
 bool joinGame(int fd, utilizator &Utilizator)
 {
     printf("[In Join Function]\n");
     //citim numarul de lobbyuri disponibile
-    int numberOfGames;
+    int numberOfGames=0;
     read(fd, &numberOfGames, sizeof(numberOfGames));
+    printf("Number of open lobbys:%d\n",numberOfGames);
     //daca nu exista nici un lobby in lista, iesim si reluam dicizia
     if (numberOfGames == 0)
     {
@@ -349,7 +371,7 @@ bool joinGame(int fd, utilizator &Utilizator)
     write(fd, &decizia_mia, sizeof(decizia_mia));
     //incepem jocul cu playerul din lobby
     int PlayerIndex;
-    read(fd,&PlayerIndex,sizeof(PlayerIndex));
+    read(fd, &PlayerIndex, sizeof(PlayerIndex));
     gamePlayerTurn(fd, PlayerIndex);
 }
 
@@ -359,14 +381,18 @@ bool createGame(int fd, utilizator &Utilizator)
     printf("[In CreateGame Function] ");
     printf("Waiting For Server Response\n");
 
-    do{printf("You want to be first? Press 0 !\n");
-    printf("You want to be second? Press 1 !\n");
-    cin>>turn;}while(turn!=0&&turn!=1);
-    write(fd,&turn,sizeof(turn));
+    do
+    {
+        printf("You want to be first? Press 0 !\n");
+        printf("You want to be second? Press 1 !\n");
+        cin >> turn;
+    } while (turn != 0 && turn != 1);
+    write(fd, &turn, sizeof(turn));
     //asteptam sa fim anuntati de catre player ca intra in
     //lobby, pe urma anuntam serverul ca putem incepe jocul
     int response = 1;
     read(fd, &response, sizeof(response));
+    printf("response:%d\n",response);
     write(fd, &response, sizeof(response));
 
     //incepem jocul cu playerul ce a intrat in lobby
@@ -385,35 +411,46 @@ bool decision(int fd, utilizator &Utilizator)
     if (!Utilizator.esteLogat())
     {
         char nume[20];
+        int usedName=0;
+        do
+        {
+            if(usedName!=0)printf("Name allready used, try another one\n");
+            printf("Enter your name: ");
+            std::cin.getline(nume, 20, '\n');
 
-        printf("Enter your name: ");
-        std::cin.getline(nume, 20, '\n');
+            int len = strlen(nume);
 
-        int len = strlen(nume);
-
-        write(fd, &len, sizeof(len));
-        write(fd, &nume, len);
-
+            write(fd, &len, sizeof(len));
+            write(fd, &nume, len);
+            read(fd, &usedName, sizeof(usedName));
+        } while (usedName !=0);
         Utilizator.setUp(fd, nume);
         printf("Your name is :%s  \n", Utilizator.username);
     }
     else
     {
-        char decision[20];
+        int decision = 2;
         do
         {
-            printf("join or createGame :");
-            std::cin.getline(decision, 20, '\n');
-        } while (strcmp(decision, "join") != 0 && strcmp(decision, "createGame") != 0);
+            printf("If Exit Enter 2\nIf Join Enter 1\nIf CreateGame Enter 0\n");
+            printf("Your decision is:");
+            cin >> decision;
+        } while (decision != 0 && decision != 1 && decision!=2);
 
-        int len = strlen(decision);
-        write(fd, &len, sizeof(len));
-        write(fd, &decision, len);
-
-        if (strcmp(decision, "join") == 0)
+        write(fd, &decision, sizeof(decision));
+        if (decision == 1)
+        {
+            printf(" ~~> Join!\n");
             joinGame(fd, Utilizator);
-        else if (strcmp(decision, "createGame") == 0)
+        }
+        else if (decision == 0)
+        {
+            printf(" ~~> CreateGame!\n");
             createGame(fd, Utilizator);
+        }
+        else if(decision==2){
+            myExit=true;
+        }
     }
 }
 
