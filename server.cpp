@@ -7,6 +7,7 @@
 #include <bits/stdc++.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
@@ -31,18 +32,26 @@ enum Protocol
 	_JoinGame
 };
 
+void signalHandler(int signum)
+{
+	printf("[Server]Server closed..\n");
+	server_quit = true;
+	exit(signum);
+};
+
 struct utilizator
 {
-	int exit=0;
+	int exit = 0;
 	int id;
 	int fd = -1;
 	char username[20];
 
 	bool setExit(int value)
 	{
-		exit=value;
+		exit = value;
 	}
-	int getExit(){
+	int getExit()
+	{
 		return exit;
 	}
 	bool setLink(int link)
@@ -65,25 +74,29 @@ struct utilizator
 	{
 		return username;
 	}
-	int getId(){
+	int getId()
+	{
 		return id;
 	}
-	bool setId(int idUnique){
-		id=idUnique;
+	bool setId(int idUnique)
+	{
+		id = idUnique;
 	}
 };
 
 utilizator Utilizatori[6];
 
-bool setUniqueId(utilizator &Utilizator){
-	int id=rand()%100+1;
+bool setUniqueId(utilizator &Utilizator)
+{
+	int id = rand() % 100 + 1;
 	bool aux;
-	do{
-		aux=false;
+	do
+	{
+		aux = false;
 		for (int i = 0; i < 6; i++)
 			if (Utilizatori[i].getId() == id)
-			aux=true;
-	}while(aux);
+				aux = true;
+	} while (aux);
 	Utilizator.setId(id);
 }
 bool addUserInList(utilizator Utilizator)
@@ -96,6 +109,7 @@ bool addUserInList(utilizator Utilizator)
 		}
 	return false;
 };
+
 bool isThisUsername(char name[20])
 {
 	for (int i = 0; i < 6; i++)
@@ -105,6 +119,7 @@ bool isThisUsername(char name[20])
 		}
 	return false;
 };
+
 bool setUser(int fd, utilizator &Utilizator)
 {
 	char username[20];
@@ -128,7 +143,7 @@ bool setUser(int fd, utilizator &Utilizator)
 	Utilizator.setLink(fd);
 	setUniqueId(Utilizator);
 	addUserInList(Utilizator);
-	printf("[User:%s]Done setting up the User with Ip:%d\n", Utilizator.getName(),Utilizator.getLink());
+	printf("[User:%s]Done setting up the User with Ip:%d\n", Utilizator.getName(), Utilizator.getLink());
 	return true;
 };
 
@@ -245,16 +260,7 @@ struct gameLobby
 };
 
 gameLobby Lobbys[6];
-bool addLobbyInList(gameLobby &Lobby)
-{
-	for (int i = 0; i < 6; i++)
-		if (Lobbys[i].emptyLobby())
-		{
-			Lobbys[i] = Lobby;
-			return true;
-		}
-	return false;
-}
+
 void cleanLobby(gameLobby Lobby)
 {
 	for (int i = 0; i < 6; i++)
@@ -266,12 +272,277 @@ void cleanLobby(gameLobby Lobby)
 		}
 }
 
-void gamePlayerTurn(utilizator Player, int fdEnemy, int PlayerIndex,int myAmountOfWins,int enemyAmountOfWins)
+bool addLobbyInList(gameLobby &Lobby)
+{
+	for (int i = 0; i < 6; i++)
+		if (Lobbys[i].emptyLobby())
+		{
+			Lobbys[i] = Lobby;
+			return true;
+		}
+	return false;
+}
+
+struct gamePlay
+{
+	int matrix[8][8];
+	int matrix_size = 8;
+
+	bool setupMatrix(int size)
+	{
+		for (int i = 0; i < size; i++)
+			for (int j = 0; j < size; j++)
+				matrix[i][j] = 0;
+	};
+
+	//Urmatoarele 3 functii sunt pentru verificarea si aplicarea deciziei jucatorului
+	bool columnFull(int columnIndex)
+	{
+
+		if (matrix[0][columnIndex] != 0)
+			return true;
+		return false;
+	};
+
+	int firstEmptyRow(int columnIndex)
+	{
+
+		for (int i = matrix_size - 1; i >= 0; i--)
+			if (matrix[i][columnIndex] == 0)
+				return i;
+	};
+
+	bool addInColumn(int columnIndex, int value)
+	{
+
+		if (columnFull(columnIndex))
+			return false;
+
+		int row = firstEmptyRow(columnIndex);
+		matrix[row][columnIndex] = value;
+		return true;
+	};
+
+	//Urmatoarele functii sunt pentru verificarea jocului
+	bool latitude(int row, int column)
+	{
+		int i = column - 1, j = column + 1;
+		int color = matrix[row][column];
+		int sum = 1;
+		while (i >= 0 && matrix[row][i] == color)
+		{
+			sum++;
+			i--;
+		}
+		while (j < matrix_size && matrix[row][j] == color)
+		{
+			sum++;
+			j++;
+		}
+		if (sum >= 4)
+		{
+			return true;
+		}
+		return false;
+	};
+
+	bool longitude(int row, int column)
+	{
+		int i = row - 1, j = row + 1;
+		int color = matrix[row][column];
+		int sum = 1;
+		while (i >= 0 && matrix[i][column] == color)
+		{
+			sum++;
+			i--;
+		}
+		while (j < matrix_size && matrix[j][column] == color)
+		{
+			sum++;
+			j++;
+		}
+		if (sum >= 4)
+		{
+			return true;
+		}
+		return false;
+	};
+
+	bool diagonal(int row, int column)
+	{
+
+		int color = matrix[row][column];
+
+		int sum1 = 1;
+		int i1 = -1, j1 = 1;
+		while (row + i1 >= 0 && column + i1 >= 0 && matrix[row + i1][column + i1] == color)
+		{
+			i1--;
+			sum1++;
+		}
+		while (row + j1 < matrix_size && column + j1 < matrix_size && matrix[row + j1][column + j1] == color)
+		{
+			j1++;
+			sum1++;
+		}
+		if (sum1 >= 4)
+		{
+			return true;
+		}
+
+		int sum2 = 1;
+		int i2 = -1, j2 = 1;
+		while (row + i2 >= 0 && column - i2 < matrix_size && matrix[row + i2][column - i2] == color)
+		{
+			i2--;
+			sum2++;
+		}
+		while (row + j2 < matrix_size && column - j2 >= 0 && matrix[row + j2][column - j2] == color)
+		{
+			j2++;
+			sum2++;
+		}
+		if (sum2 >= 4)
+		{
+			return true;
+		}
+
+		return false;
+	};
+
+	bool fourInRow(int row, int column)
+	{
+		if (matrix[row][column] == 0)
+			return false;
+		if (diagonal(row, column) == true)
+		{
+			return true;
+		}
+		if (latitude(row, column) == true)
+		{
+			return true;
+		}
+		if (longitude(row, column) == true)
+		{
+			return true;
+		}
+		return false;
+	};
+
+	int endGame()
+	{
+		for (int i = 0; i < matrix_size; i++)
+			for (int j = 0; j < matrix_size; j++)
+				if (fourInRow(i, j))
+					return matrix[i][j];
+		return 0;
+	};
+
+	void printMatrix()
+	{
+		for (int i = 0; i < matrix_size; i++)
+		{
+			for (int j = 0; j < matrix_size; j++)
+				printf("%d ", matrix[i][j]);
+			printf("\n");
+		}
+		printf("\n0 1 2 3 4 5 6 7\n");
+	};
+
+	void printMatrix2(int fd)
+	{
+		for (int i = 0; i < 8; i++)
+			for (int j = 0; j < 8; j++)
+				write(fd, &matrix[i][j], sizeof(matrix[i][j]));
+	};
+};
+
+void gamePlayerTurn2(utilizator Player, int fdEnemy, int PlayerIndex, int myAmountOfWins, int enemyAmountOfWins)
+{
+	gamePlay Game;
+	Game.setupMatrix(8);
+	printf("[In Game]");
+	int decizie;
+	int aux;
+	int raspuns;
+	int playerFlag = 2;
+	int enemyFlag = 3;
+	int turn = 0;
+	write(Player.getLink(), &myAmountOfWins, sizeof(myAmountOfWins));
+	write(Player.getLink(), &enemyAmountOfWins, sizeof(enemyAmountOfWins));
+	//gameTestConnection(Player, fdEnemy, PlayerIndex);
+	do
+	{
+		write(Player.getLink(), &turn, sizeof(turn));
+		Game.printMatrix2(Player.getLink());
+		if (turn == PlayerIndex)
+		{
+			do
+			{
+				read(Player.getLink(), &decizie, sizeof(decizie));
+				if (decizie == 100)
+					break;
+				if (Game.columnFull(decizie))
+				{
+					raspuns = 0;
+					write(Player.getLink(), &raspuns, sizeof(raspuns));
+				}
+				else
+					raspuns = 1;
+			} while (raspuns == 0);
+
+			Game.addInColumn(decizie, playerFlag);
+			aux = Game.endGame();
+			if (aux != 0)
+				raspuns = aux;
+			write(fdEnemy, &decizie, sizeof(decizie));
+			write(Player.getLink(), &raspuns, sizeof(raspuns));
+		printf("Raspuns %d\n",raspuns);
+		}
+		else
+		{
+			read(Player.getLink(), &decizie, sizeof(decizie));
+			Game.addInColumn(decizie, enemyFlag);
+			raspuns = 1;
+			aux = Game.endGame();
+			if (aux != 0)
+				raspuns = aux;
+			write(Player.getLink(), &raspuns, sizeof(raspuns));
+		printf("Raspuns %d\n",raspuns);
+		}
+		turn = 1 - turn;
+		printf("Raspuns %d\n",raspuns);
+	}while (raspuns != 2 && raspuns != 3);
+
+	printf("OutOfWhile\n");
+	int theWin;
+	if(raspuns==2)theWin=0;
+	else theWin=1;
+
+	int playAgain;
+	read(Player.getLink(), &playAgain, sizeof(playAgain));
+	
+     printf("[Player:%s]The playAgain:%d\n",Player.getName(),playAgain);
+	write(fdEnemy, &playAgain, sizeof(playAgain));
+	
+     printf("[Player:%s]The playAgain:%d\n",Player.getName(),playAgain);
+	read(Player.getLink(), &playAgain, sizeof(playAgain));
+	
+    printf("[Player:%s]The playAgain:%d\n",Player.getName(),playAgain);
+
+	if (playAgain==1)
+		gamePlayerTurn2(Player, fdEnemy, PlayerIndex, myAmountOfWins + theWin, enemyAmountOfWins + (1 - theWin));
+
+}
+
+void gamePlayerTurn(utilizator Player, int fdEnemy, int PlayerIndex, int myAmountOfWins, int enemyAmountOfWins)
 {
 	printf("[In Game]");
 	int len;
 	int a;
 	int turn = 0;
+	write(Player.getLink(), &myAmountOfWins, sizeof(myAmountOfWins));
+	write(Player.getLink(), &enemyAmountOfWins, sizeof(enemyAmountOfWins));
 	//gameTestConnection(Player, fdEnemy, PlayerIndex);
 	while (1)
 	{
@@ -289,18 +560,19 @@ void gamePlayerTurn(utilizator Player, int fdEnemy, int PlayerIndex,int myAmount
 		{
 			read(Player.getLink(), &a, sizeof(a));
 			if (a == 100)
-			break;
+				break;
 		}
 		turn = 1 - turn;
 	}
 	int theWin;
-	read(fd,&theWin,sizeof(theWin));
+	read(Player.getLink(), &theWin, sizeof(theWin));
 	int decizie;
-	read(Player.getLink(),&decizie,sizeof(decizie));
-	write(fdEnemy,&decizie,sizeof(decizie));
-	read(Player.getLink(),&decizie,sizeof(decizie));
-	
-	if(decizie==1)gamePlayerTurn(Player,fdEnemy,PlayerIndex,myAmountOfWins+theWin,enemyAmountOfWins+(1-theWin));
+	read(Player.getLink(), &decizie, sizeof(decizie));
+	write(fdEnemy, &decizie, sizeof(decizie));
+	read(Player.getLink(), &decizie, sizeof(decizie));
+
+	if (decizie == 1)
+		gamePlayerTurn(Player, fdEnemy, PlayerIndex, myAmountOfWins + theWin, enemyAmountOfWins + (1 - theWin));
 }
 
 void createGame(utilizator &Utilizator)
@@ -316,14 +588,14 @@ void createGame(utilizator &Utilizator)
 
 	int fdEnemy;
 	read(Utilizator.getLink(), &fdEnemy, sizeof(fdEnemy));
-	printf("fd:%d\n",Utilizator.getLink());
-	printf("fd:%d\n",fdEnemy);
+	printf("fd:%d\n", Utilizator.getLink());
+	printf("fd:%d\n", fdEnemy);
 	printf("[User:%s] Lobby full , Game will start \n", Utilizator.getName());
 
 	lobby.setGame();
 	turn = lobby.Player1Turn;
 	cleanLobby(lobby);
-	gamePlayerTurn(Utilizator, fdEnemy, turn);
+	gamePlayerTurn2(Utilizator, fdEnemy, turn, 0, 0);
 };
 
 bool joinGame(utilizator &Utilizator)
@@ -367,20 +639,20 @@ bool joinGame(utilizator &Utilizator)
 	write(Utilizator.getLink(), &a, sizeof(a));
 	printf("[User:%s] [GameStart] \n", Utilizator.getName());
 
-	gamePlayerTurn(Utilizator, Lobbys[decision].getUtilizator1().getLink(), Lobbys[decision].Player2Turn);
+	gamePlayerTurn2(Utilizator, Lobbys[decision].getUtilizator1().getLink(), Lobbys[decision].Player2Turn, 0, 0);
 	return true;
 };
-
-bool quit(utilizator Utilizator){
-	for(int i=0;i<6;i++)
-		if(Utilizatori[i].getId()==Utilizator.getId())
+bool quit(utilizator Utilizator)
+{
+	for (int i = 0; i < 6; i++)
+		if (Utilizatori[i].getId() == Utilizator.getId())
 		{
-			
+
 			Utilizator.setExit(1);
 			printf("[Player %s]Just Quit |  P1.index:%d  P1:%d  |  P2:%d  \n",
-			Utilizator.getName(),i,Utilizatori[i].getId(),Utilizator.getId());
+				   Utilizator.getName(), i, Utilizatori[i].getId(), Utilizator.getId());
 			utilizator emptyUtilizator;
-			Utilizatori[i]=emptyUtilizator;
+			Utilizatori[i] = emptyUtilizator;
 			return true;
 		}
 }
@@ -399,7 +671,7 @@ bool Servire(int fd, sockaddr_in c_socket)
 	utilizator Utilizator;
 
 	setUser(fd, Utilizator);
-	while (!quits && !server_quit&&Utilizator.getExit()==0)
+	while (!quits && !server_quit && Utilizator.getExit() == 0)
 	{
 		read(fd, &desc, sizeof(desc));
 
@@ -411,7 +683,7 @@ bool Servire(int fd, sockaddr_in c_socket)
 		{
 			createGame(Utilizator);
 		}
-		else if(desc==2)
+		else if (desc == 2)
 		{
 			quit(Utilizator);
 		}

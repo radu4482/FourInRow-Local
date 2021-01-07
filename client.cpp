@@ -232,12 +232,77 @@ struct utilizator
     };
 };
 
+void readAfisareMatrix(int fd)
+{
+    int value;
+    for (int i = 0; i < 8; i++)
+    {
+        for (int j = 0; j < 8; j++)
+        {
+            read(fd, &value, sizeof(value));
+            printf("%d ", value);
+        }
+        printf("\n");
+    }
+    printf("0 1 2 3 4 5 6 7\n");
+}
+
+void gamePlayerTurn2(int fd,int PlayerIndex){
+    int turn;
+    int decizie;
+    int raspuns;
+    int myWins;
+    int enemyWins;
+    read(fd, &myWins, sizeof(myWins));
+    read(fd, &enemyWins, sizeof(enemyWins));
+    do{
+        read(fd,&turn,sizeof(turn));
+        printf("Score is %d You | %d Enemy\n\n",myWins,enemyWins);
+        readAfisareMatrix(fd);
+        if(turn==PlayerIndex)
+        {
+            do{
+                printf("Choose a column: ");
+                cin>>decizie;
+                write(fd,&decizie,sizeof(decizie));
+                read(fd,&raspuns,sizeof(raspuns));
+            }while(raspuns==0);
+        }
+        else{
+            read(fd,&decizie,sizeof(decizie));
+            write(fd,&decizie,sizeof(decizie));
+            read(fd,&raspuns,sizeof(raspuns));
+        }
+    }while(raspuns!=2&&raspuns!=3);
+    printf("GameOver\n");
+    printf("Would you like to play again with your enemy ?\n0 for NO, 1 for YES\n");
+ 
+    int playAgain;
+    int playAgainEnemy;
+
+    do
+    {
+        cin >> playAgain;
+    } while (playAgain != 0 && playAgain != 1);
+
+    printf("The playAgain:%d\n",playAgain);
+    write(fd, &playAgain, sizeof(playAgain));
+    printf("The playAgainEnemy:%d\n",playAgainEnemy);
+    read(fd, &playAgainEnemy, sizeof(playAgainEnemy));
+    if (playAgain == 1 && playAgainEnemy == 1)
+    {
+        write(fd, &playAgain, sizeof(playAgain));
+        gamePlayerTurn2(fd, PlayerIndex);
+    }
+    else
+    {
+        int nogame = 0;
+        write(fd, &nogame, sizeof(nogame));
+    }
+}
+
 void gamePlayerTurn(int fd, int PlayerIndex)
 {
-    int myAmountOfWins;
-    int enemyAmountOfWins;
-    read(fd,&myAmountOfWins,sizeof(myAmountOfWins));
-    read(fd,&enemyAmountOfWins,sizeof(enemyAmountOfWins));
     printf("[GameStarted]\n");
     //initializam runda cu 0 si variabilele ajutatoare
     int turn = 0;
@@ -246,7 +311,6 @@ void gamePlayerTurn(int fd, int PlayerIndex)
     int flag;
     int enemyflag;
     int winner = 0;
-    int win;
     if (PlayerIndex == 0)
     {
         flag = 1;
@@ -260,12 +324,15 @@ void gamePlayerTurn(int fd, int PlayerIndex)
 
     game Game;
     Game.setupMatrix(8);
-
+    int myWins;
+    int enemyWins;
+    read(fd, &myWins, sizeof(myWins));
+    read(fd, &enemyWins, sizeof(enemyWins));
     while (winner == 0)
     {
         len = -1;
         system("clear");
-        printf("The Score is:\nYou~%d | Enemy~%d\n",myAmountOfWins,enemyAmountOfWins);
+        printf("Score: You:%d | Enemy: %d\n", myWins, enemyWins);
         printf("Your flag is : %d \n", flag);
         printf("Enemy's flag is : %d\n", enemyflag);
         Game.printMatrix();
@@ -306,19 +373,24 @@ void gamePlayerTurn(int fd, int PlayerIndex)
         turn = 1 - turn;
         winner = Game.endGame();
     }
-
+    int win;
     int endGameServer = 100;
     write(fd, &endGameServer, sizeof(endGameServer));
     system("clear");
     Game.printMatrix();
     if (flag == winner)
-        {printf("You Won!\n\n");win=1;}
+    {
+        printf("You Won!\n\n");
+        win = 1;
+    }
     else
-        {printf("You Lost!\n\n");win=0;}
-    write(fd,&win,sizeof(win));
+    {
+        printf("You Lost!\n\n");
+        win = 0;
+    }
 
     printf("Would you like to play again with your enemy ?\n0 for NO, 1 for YES\n");
-
+    write(fd, &win, sizeof(win));
     int decizie;
     int decizieEnemy;
 
@@ -329,25 +401,26 @@ void gamePlayerTurn(int fd, int PlayerIndex)
 
     write(fd, &decizie, sizeof(decizie));
     read(fd, &decizieEnemy, sizeof(decizieEnemy));
-    printf("Enemy decision:%d\n",decizieEnemy);
+    printf("Enemy decision:%d\n", decizieEnemy);
     if (decizie == 1 && decizieEnemy == 1)
-    {   
-        write(fd,&decizie,sizeof(decizie));
+    {
+        write(fd, &decizie, sizeof(decizie));
         gamePlayerTurn(fd, PlayerIndex);
-        }
-        else{
-            int nogame=0;
-            write(fd,&nogame,sizeof(nogame));
-        }
+    }
+    else
+    {
+        int nogame = 0;
+        write(fd, &nogame, sizeof(nogame));
+    }
 }
 
 bool joinGame(int fd, utilizator &Utilizator)
 {
     printf("[In Join Function]\n");
     //citim numarul de lobbyuri disponibile
-    int numberOfGames=0;
+    int numberOfGames = 0;
     read(fd, &numberOfGames, sizeof(numberOfGames));
-    printf("Number of open lobbys:%d\n",numberOfGames);
+    printf("Number of open lobbys:%d\n", numberOfGames);
     //daca nu exista nici un lobby in lista, iesim si reluam dicizia
     if (numberOfGames == 0)
     {
@@ -379,7 +452,7 @@ bool joinGame(int fd, utilizator &Utilizator)
     //incepem jocul cu playerul din lobby
     int PlayerIndex;
     read(fd, &PlayerIndex, sizeof(PlayerIndex));
-    gamePlayerTurn(fd, PlayerIndex);
+    gamePlayerTurn2(fd, PlayerIndex);
 }
 
 bool createGame(int fd, utilizator &Utilizator)
@@ -399,11 +472,18 @@ bool createGame(int fd, utilizator &Utilizator)
     //lobby, pe urma anuntam serverul ca putem incepe jocul
     int response = 1;
     read(fd, &response, sizeof(response));
-    printf("response:%d\n",response);
+    printf("response:%d\n", response);
     write(fd, &response, sizeof(response));
 
     //incepem jocul cu playerul ce a intrat in lobby
-    gamePlayerTurn(fd, turn);
+    gamePlayerTurn2(fd, turn);
+}
+// gcc -pthread server.cpp -lstdc++ -o server.o
+// gcc -pthread client.cpp -lstdc++ -o client.o
+
+void signalHandler(int signum)
+{
+    exit(signum);
 }
 
 bool decision(int fd, utilizator &Utilizator)
@@ -411,10 +491,11 @@ bool decision(int fd, utilizator &Utilizator)
     if (!Utilizator.esteLogat())
     {
         char nume[20];
-        int usedName=0;
+        int usedName = 0;
         do
         {
-            if(usedName!=0)printf("Name allready used, try another one\n");
+            if (usedName != 0)
+                printf("Name allready used, try another one\n");
             printf("Enter your name: ");
             std::cin.getline(nume, 20, '\n');
 
@@ -423,7 +504,7 @@ bool decision(int fd, utilizator &Utilizator)
             write(fd, &len, sizeof(len));
             write(fd, &nume, len);
             read(fd, &usedName, sizeof(usedName));
-        } while (usedName !=0);
+        } while (usedName != 0);
         Utilizator.setUp(fd, nume);
         printf("Your name is :%s  \n", Utilizator.username);
     }
@@ -435,7 +516,7 @@ bool decision(int fd, utilizator &Utilizator)
             printf("If Exit Enter 2\nIf Join Enter 1\nIf CreateGame Enter 0\n");
             printf("Your decision is:");
             cin >> decision;
-        } while (decision != 0 && decision != 1 && decision!=2);
+        } while (decision != 0 && decision != 1 && decision != 2);
 
         write(fd, &decision, sizeof(decision));
         if (decision == 1)
@@ -448,8 +529,9 @@ bool decision(int fd, utilizator &Utilizator)
             printf(" ~~> CreateGame!\n");
             createGame(fd, Utilizator);
         }
-        else if(decision==2){
-            myExit=true;
+        else if (decision == 2)
+        {
+            myExit = true;
         }
     }
 }
@@ -485,6 +567,3 @@ int main()
         decision(SocketClient, User);
     }
 }
-
-// gcc -pthread server.cpp -lstdc++ -o server.o
-// gcc -pthread client.cpp -lstdc++ -o client.o
