@@ -234,6 +234,10 @@ struct utilizator
 
 void gamePlayerTurn(int fd, int PlayerIndex)
 {
+    int myAmountOfWins;
+    int enemyAmountOfWins;
+    read(fd,&myAmountOfWins,sizeof(myAmountOfWins));
+    read(fd,&enemyAmountOfWins,sizeof(enemyAmountOfWins));
     printf("[GameStarted]\n");
     //initializam runda cu 0 si variabilele ajutatoare
     int turn = 0;
@@ -242,6 +246,7 @@ void gamePlayerTurn(int fd, int PlayerIndex)
     int flag;
     int enemyflag;
     int winner = 0;
+    int win;
     if (PlayerIndex == 0)
     {
         flag = 1;
@@ -260,6 +265,7 @@ void gamePlayerTurn(int fd, int PlayerIndex)
     {
         len = -1;
         system("clear");
+        printf("The Score is:\nYou~%d | Enemy~%d\n",myAmountOfWins,enemyAmountOfWins);
         printf("Your flag is : %d \n", flag);
         printf("Enemy's flag is : %d\n", enemyflag);
         Game.printMatrix();
@@ -306,9 +312,10 @@ void gamePlayerTurn(int fd, int PlayerIndex)
     system("clear");
     Game.printMatrix();
     if (flag == winner)
-        printf("You Won!\n\n");
+        {printf("You Won!\n\n");win=1;}
     else
-        printf("You Lost!\n\n");
+        {printf("You Lost!\n\n");win=0;}
+    write(fd,&win,sizeof(win));
 
     printf("Would you like to play again with your enemy ?\n0 for NO, 1 for YES\n");
 
@@ -398,13 +405,6 @@ bool createGame(int fd, utilizator &Utilizator)
     //incepem jocul cu playerul ce a intrat in lobby
     gamePlayerTurn(fd, turn);
 }
-// gcc -pthread server.cpp -lstdc++ -o server.o
-// gcc -pthread client.cpp -lstdc++ -o client.o
-
-void signalHandler(int signum)
-{
-    exit(signum);
-}
 
 bool decision(int fd, utilizator &Utilizator)
 {
@@ -485,3 +485,6 @@ int main()
         decision(SocketClient, User);
     }
 }
+
+// gcc -pthread server.cpp -lstdc++ -o server.o
+// gcc -pthread client.cpp -lstdc++ -o client.o

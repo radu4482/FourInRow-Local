@@ -96,7 +96,6 @@ bool addUserInList(utilizator Utilizator)
 		}
 	return false;
 };
-
 bool isThisUsername(char name[20])
 {
 	for (int i = 0; i < 6; i++)
@@ -106,7 +105,6 @@ bool isThisUsername(char name[20])
 		}
 	return false;
 };
-
 bool setUser(int fd, utilizator &Utilizator)
 {
 	char username[20];
@@ -247,7 +245,16 @@ struct gameLobby
 };
 
 gameLobby Lobbys[6];
-
+bool addLobbyInList(gameLobby &Lobby)
+{
+	for (int i = 0; i < 6; i++)
+		if (Lobbys[i].emptyLobby())
+		{
+			Lobbys[i] = Lobby;
+			return true;
+		}
+	return false;
+}
 void cleanLobby(gameLobby Lobby)
 {
 	for (int i = 0; i < 6; i++)
@@ -259,7 +266,7 @@ void cleanLobby(gameLobby Lobby)
 		}
 }
 
-void gamePlayerTurn(utilizator Player, int fdEnemy, int PlayerIndex)
+void gamePlayerTurn(utilizator Player, int fdEnemy, int PlayerIndex,int myAmountOfWins,int enemyAmountOfWins)
 {
 	printf("[In Game]");
 	int len;
@@ -286,31 +293,15 @@ void gamePlayerTurn(utilizator Player, int fdEnemy, int PlayerIndex)
 		}
 		turn = 1 - turn;
 	}
+	int theWin;
+	read(fd,&theWin,sizeof(theWin));
 	int decizie;
 	read(Player.getLink(),&decizie,sizeof(decizie));
 	write(fdEnemy,&decizie,sizeof(decizie));
 	read(Player.getLink(),&decizie,sizeof(decizie));
 	
-	if(decizie==1)gamePlayerTurn(Player,fdEnemy,PlayerIndex);
+	if(decizie==1)gamePlayerTurn(Player,fdEnemy,PlayerIndex,myAmountOfWins+theWin,enemyAmountOfWins+(1-theWin));
 }
-
-bool addLobbyInList(gameLobby &Lobby)
-{
-	for (int i = 0; i < 6; i++)
-		if (Lobbys[i].emptyLobby())
-		{
-			Lobbys[i] = Lobby;
-			return true;
-		}
-	return false;
-}
-
-void signalHandler(int signum)
-{
-	printf("[Server]Server closed..\n");
-	server_quit = true;
-	exit(signum);
-}; //TODO: vezi despre ce e vb (semnal)
 
 void createGame(utilizator &Utilizator)
 {
@@ -379,6 +370,7 @@ bool joinGame(utilizator &Utilizator)
 	gamePlayerTurn(Utilizator, Lobbys[decision].getUtilizator1().getLink(), Lobbys[decision].Player2Turn);
 	return true;
 };
+
 bool quit(utilizator Utilizator){
 	for(int i=0;i<6;i++)
 		if(Utilizatori[i].getId()==Utilizator.getId())
