@@ -30,7 +30,6 @@ struct game
     //Urmatoarele 3 functii sunt pentru verificarea si aplicarea deciziei jucatorului
     bool columnFull(int columnIndex)
     {
-
         if (matrix[0][columnIndex] != 0)
             return true;
         return false;
@@ -46,7 +45,6 @@ struct game
 
     bool addInColumn(int columnIndex, int value)
     {
-
         if (columnFull(columnIndex))
             return false;
 
@@ -61,21 +59,16 @@ struct game
         int i = column - 1, j = column + 1;
         int color = matrix[row][column];
         int sum = 1;
-        while (i >= 0 && matrix[row][i] == color)
-        {
+        while (i >= 0 && matrix[row][i] == color){
             sum++;
             i--;
         }
-        while (j < matrix_size && matrix[row][j] == color)
-        {
+        while (j < matrix_size && matrix[row][j] == color){
             sum++;
             j++;
         }
         if (sum >= 4)
-        {
-            printf("Latitude,score:%d\n", sum);
             return true;
-        }
         return false;
     };
 
@@ -84,27 +77,20 @@ struct game
         int i = row - 1, j = row + 1;
         int color = matrix[row][column];
         int sum = 1;
-        while (i >= 0 && matrix[i][column] == color)
-        {
+        while (i >= 0 && matrix[i][column] == color){
             sum++;
             i--;
         }
-        while (j < matrix_size && matrix[j][column] == color)
-        {
+        while (j < matrix_size && matrix[j][column] == color){
             sum++;
             j++;
         }
         if (sum >= 4)
-        {
-            printf("Longitude,score:%d\n", sum);
             return true;
-        }
         return false;
     };
 
-    bool diagonal(int row, int column)
-    {
-
+    bool diagonal(int row, int column){   
         int color = matrix[row][column];
 
         int sum1 = 1;
@@ -120,10 +106,7 @@ struct game
             sum1++;
         }
         if (sum1 >= 4)
-        {
-            printf("Diag1,score:%d\n", sum1);
             return true;
-        }
 
         int sum2 = 1;
         int i2 = -1, j2 = 1;
@@ -138,33 +121,17 @@ struct game
             sum2++;
         }
         if (sum2 >= 4)
-        {
-            printf("Diag2,score:%d\n", sum2);
             return true;
-        }
 
         return false;
     };
 
     bool fourInRow(int row, int column)
     {
-        if (matrix[row][column] == 0)
-            return false;
-        if (diagonal(row, column) == true)
-        {
-            printf("diag\n");
-            return true;
-        }
-        if (latitude(row, column) == true)
-        {
-            printf("latitude\n");
-            return true;
-        }
-        if (longitude(row, column) == true)
-        {
-            printf("longitude\n");
-            return true;
-        }
+        if (matrix[row][column] == 0) return false;
+        if (diagonal(row, column) == true) return true;
+        if (latitude(row, column) == true) return true;
+        if (longitude(row, column) == true) return true;
         return false;
     };
 
@@ -179,12 +146,11 @@ struct game
 
     void printMatrix()
     {
-        for (int i = 0; i < matrix_size; i++)
-        {
+        for (int i = 0; i < matrix_size; i++){
             for (int j = 0; j < matrix_size; j++)
                 printf("%d ", matrix[i][j]);
             printf("\n");
-        }
+            }
         printf("\n0 1 2 3 4 5 6 7\n");
     };
 };
@@ -206,6 +172,14 @@ struct utilizator
         return true;
     };
 
+    bool setUp(int fd, char name[20])
+    {
+        this->seLogheaza();
+        this->setName(name);
+        this->setUser(fd);
+        return true;
+    };
+
     int getLink()
     {
         return fd;
@@ -218,16 +192,10 @@ struct utilizator
     {
         return loged;
     };
+
     bool seLogheaza()
     {
         loged = true;
-        return true;
-    };
-    bool setUp(int fd, char name[20])
-    {
-        this->seLogheaza();
-        this->setName(name);
-        this->setUser(fd);
         return true;
     };
 };
@@ -244,7 +212,7 @@ void readAfisareMatrix(int fd)
         }
         printf("\n");
     }
-    printf("0 1 2 3 4 5 6 7\n");
+    printf("\n0 1 2 3 4 5 6 7\n");
 }
 
 void gamePlayerTurn2(int fd,int PlayerIndex){
@@ -274,21 +242,19 @@ void gamePlayerTurn2(int fd,int PlayerIndex){
             read(fd,&raspuns,sizeof(raspuns));
         }
     }while(raspuns!=2&&raspuns!=3);
+
     printf("GameOver\n");
     printf("Would you like to play again with your enemy ?\n0 for NO, 1 for YES\n");
  
     int playAgain;
     int playAgainEnemy;
-
-    do
-    {
+    do{
         cin >> playAgain;
     } while (playAgain != 0 && playAgain != 1);
 
-    printf("The playAgain:%d\n",playAgain);
     write(fd, &playAgain, sizeof(playAgain));
-    printf("The playAgainEnemy:%d\n",playAgainEnemy);
     read(fd, &playAgainEnemy, sizeof(playAgainEnemy));
+
     if (playAgain == 1 && playAgainEnemy == 1)
     {
         write(fd, &playAgain, sizeof(playAgain));
@@ -299,15 +265,15 @@ void gamePlayerTurn2(int fd,int PlayerIndex){
         int nogame = 0;
         write(fd, &nogame, sizeof(nogame));
     }
-}
+};
 
 void gamePlayerTurn(int fd, int PlayerIndex)
 {
     printf("[GameStarted]\n");
     //initializam runda cu 0 si variabilele ajutatoare
     int turn = 0;
-    int enemylen;
-    int len;
+    int enemyDecizie;
+    int decizie;
     int flag;
     int enemyflag;
     int winner = 0;
@@ -330,41 +296,38 @@ void gamePlayerTurn(int fd, int PlayerIndex)
     read(fd, &enemyWins, sizeof(enemyWins));
     while (winner == 0)
     {
-        len = -1;
+        decizie = -1;
         system("clear");
         printf("Score: You:%d | Enemy: %d\n", myWins, enemyWins);
         printf("Your flag is : %d \n", flag);
         printf("Enemy's flag is : %d\n", enemyflag);
         Game.printMatrix();
+        cin.clear();
+        cin.sync();
+        fflush(stdin);
         //in cazul in care este runda noastra
         if (turn == PlayerIndex)
         {
-            cin.clear();
-            cin.sync();
-            fflush(stdin);
             do
             {
                 printf("Is your turn!\n");
                 //Decidem un mesaj
                 printf("[Your Message]: ");
-                cin >> len;
-            } while (len > 8 || len < 0 || Game.columnFull(len));
-            write(fd, &len, sizeof(len));
-            Game.addInColumn(len, flag);
+                cin >> decizie;
+            } while (decizie > 8 || decizie < 0 || Game.columnFull(decizie));
+            write(fd, &decizie, sizeof(decizie));
+            Game.addInColumn(decizie, flag);
         }
         //in cazul in care este runda inamicului
         else
         {
-            cin.clear();
-            cin.sync();
-            fflush(stdin);
             printf("Is enemys's turn !\n");
             printf("[EnemyMessage]: ");
 
             //citim si afisam mesajul inamicului de la server
-            read(fd, &enemylen, sizeof(enemylen));
-            printf("%d\n", enemylen);
-            Game.addInColumn(enemylen, enemyflag);
+            read(fd, &enemyDecizie, sizeof(enemyDecizie));
+            printf("%d\n", enemyDecizie);
+            Game.addInColumn(enemyDecizie, enemyflag);
             //anuntam serverul ca am primit mesajul
             write(fd, &turn, sizeof(turn));
         }
@@ -481,11 +444,6 @@ bool createGame(int fd, utilizator &Utilizator)
 // gcc -pthread server.cpp -lstdc++ -o server.o
 // gcc -pthread client.cpp -lstdc++ -o client.o
 
-void signalHandler(int signum)
-{
-    exit(signum);
-}
-
 bool decision(int fd, utilizator &Utilizator)
 {
     if (!Utilizator.esteLogat())
@@ -534,6 +492,11 @@ bool decision(int fd, utilizator &Utilizator)
             myExit = true;
         }
     }
+}
+
+void signalHandler(int signal)
+{
+    exit(signal);
 }
 
 int main()

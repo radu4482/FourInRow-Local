@@ -22,23 +22,6 @@ bool server_quit = false;
 struct sockaddr_in server; // structura folosita de server
 struct sockaddr_in from;
 std::mutex m;
-enum Protocol
-{
-	_Exit1,
-	_LogIn,
-	_LogOut,
-	_Register,
-	_CreateGame,
-	_JoinGame
-};
-
-void signalHandler(int signum)
-{
-	printf("[Server]Server closed..\n");
-	server_quit = true;
-	exit(signum);
-};
-
 struct utilizator
 {
 	int exit = 0;
@@ -109,7 +92,6 @@ bool addUserInList(utilizator Utilizator)
 		}
 	return false;
 };
-
 bool isThisUsername(char name[20])
 {
 	for (int i = 0; i < 6; i++)
@@ -119,7 +101,6 @@ bool isThisUsername(char name[20])
 		}
 	return false;
 };
-
 bool setUser(int fd, utilizator &Utilizator)
 {
 	char username[20];
@@ -258,7 +239,6 @@ struct gameLobby
 		return playerNumber;
 	}
 };
-
 gameLobby Lobbys[6];
 
 void cleanLobby(gameLobby Lobby)
@@ -271,7 +251,6 @@ void cleanLobby(gameLobby Lobby)
 			break;
 		}
 }
-
 bool addLobbyInList(gameLobby &Lobby)
 {
 	for (int i = 0; i < 6; i++)
@@ -642,6 +621,7 @@ bool joinGame(utilizator &Utilizator)
 	gamePlayerTurn2(Utilizator, Lobbys[decision].getUtilizator1().getLink(), Lobbys[decision].Player2Turn, 0, 0);
 	return true;
 };
+
 bool quit(utilizator Utilizator)
 {
 	for (int i = 0; i < 6; i++)
@@ -689,6 +669,13 @@ bool Servire(int fd, sockaddr_in c_socket)
 		}
 	}
 	return true;
+};
+
+void signalHandler(int signum)
+{
+	printf("[Server]Server closed..\n");
+	server_quit = true;
+	exit(signum);
 };
 
 //..............................................................................................
